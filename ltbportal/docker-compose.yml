@@ -1,0 +1,11 @@
+version: '3'
+services:
+  wrccdc-ltb-portal:
+    build: .
+    image: wrccdc-ltb-portal:latest
+    container_name: wrccdc-ltb-portal
+    ports:
+      - "8181:80"
+    restart: always
+    volumes:
+      - ./config.inc.php:/var/www/conf/config.inc.local.php
