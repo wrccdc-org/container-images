@@ -5,7 +5,7 @@ name: Docker Builder
 # documentation.
 on:
   schedule:
-    - cron: '21 16 * * *'
+    - cron: '0 0 1 * *'
   push:
     branches: [ "main" ]
     # Publish semver tags as releases.
@@ -15,7 +15,6 @@ on:
 env:
   # Use docker.io for Docker Hub if empty
   REGISTRY: ghcr.io
-
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -63,6 +62,15 @@ jobs:
         uses: docker/metadata-action@96383f45573cb7f253c731d3b3ab81c87ef81934 # v5.0.0
         with:
           images: ${{ env.REGISTRY }}/${{ github.repository }}-${{ matrix.directory }}
+          tags: |
+            # Always tag with latest
+            type=raw,value=latest
+            # Branch name for pushes to branches
+            type=ref,event=branch
+            # Tag name for pushes to tags
+            type=ref,event=tag
+            # PR number for pull requests
+            type=ref,event=pr
       
       # Build and push Docker image with Buildx (don't push on PR)
       # https://github.com/docker/build-push-action
