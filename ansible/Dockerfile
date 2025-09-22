@@ -1,4 +1,4 @@
-FROM jenkins/agent:bullseye-jdk25
+FROM jenkins/agent:bullseye-jdk17
 USER root
 RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends python3 python3-pip
 
