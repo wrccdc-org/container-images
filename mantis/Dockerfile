@@ -5,7 +5,7 @@
 FROM php:8.2-apache
 MAINTAINER kev <noreply@easypi.pro>
 
-ENV MANTIS_VER 2.27.0
+ENV MANTIS_VER 2.27.1
 
 RUN a2enmod rewrite
 
