@@ -5,6 +5,7 @@ RUN apk update && \
     apk add --no-cache \
     nginx supervisor msmtp \
     ${PHP_VERSION} \
+    ${PHP_VERSION}-fpm \
     ${PHP_VERSION}-opcache \
     ${PHP_VERSION}-zip \
     ${PHP_VERSION}-intl \
