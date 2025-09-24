@@ -13,6 +13,12 @@ RUN apk update && \
     zip \
     intl \
     sockets \
+    ctype \
+    xml \
+    dom \
+    phar \
+    pecl-apcu \
+    iconv \
     xsl \
     bz2 \
     exif \
