@@ -8,6 +8,7 @@ RUN apk update && \
     && chmod +x /setupphp.sh \
 	&& /setupphp.sh curl \
     fpm \
+    session \
     opcache \
     zip \
     intl \
