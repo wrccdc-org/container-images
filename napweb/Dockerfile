@@ -27,9 +27,7 @@ RUN mkdir -p /var/log/php /docker-entrypoint.d \
     && chmod 600 /var/log/msmtp.log \ 
     && mkdir -p /run/php
 COPY default.conf /etc/nginx/conf.d/default.conf
-RUN echo "[supervisord]\nnodaemon=true\n" > /etc/supervisord.conf && \
-    echo "[program:php-fpm]\ncommand=/usr/sbin/php-fpm82 --nodaemonize\n" >> /etc/supervisord.conf && \
-    echo "[program:nginx]\ncommand=/usr/sbin/nginx -g 'daemon off;'\n" >> /etc/supervisord.conf
+COPY supervisord.conf /etc/supervisord.conf
 
 WORKDIR /var/www/html
 EXPOSE 8080
