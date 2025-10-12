@@ -2,7 +2,7 @@
 # Dockerfile for mantisbt
 #
 
-FROM php:8.4-apache
+FROM php:8.2-apache
 MAINTAINER wrccdc
 
 ENV MANTIS_VER 2.27.1
@@ -26,7 +26,7 @@ ENV OIDC_PLUGIN_FILE MantisOIDC.tar.gz
 
 RUN set -xe \
     && curl -fSL ${MANTIS_URL} -o ${MANTIS_FILE} \
-    && curl -fsL ${oIDC_PLUGIN_URL} -o ${OIDC_PLUGIN_FILE} \
+    && curl -fsL ${OIDC_PLUGIN_URL} -o ${OIDC_PLUGIN_FILE} \
     && tar -xz --strip-components=1 -f ${MANTIS_FILE} \
     && mkdir ./plugins/MantisOIDC/ \
     && tar -xz -C ./plugins/MantisOIDC/ --strip-components=1 -f ${OIDC_PLUGIN_FILE} \

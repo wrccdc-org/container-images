@@ -1,7 +1,0 @@
----
-collections:
-  - name: ansible.windows
-  - name: community.general
-  - name: community.vmware
-  - name: community.proxmox
-  - name: serverscom.mitogen
