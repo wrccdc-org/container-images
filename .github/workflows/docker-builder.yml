@@ -20,7 +20,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        directory: [ansible, mantis, wcweb-php, napweb]
+        directory: [mantis, wcweb-php, napweb]
     permissions:
       contents: read
       packages: write
