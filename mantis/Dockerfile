@@ -28,9 +28,9 @@ RUN set -xe \
     && curl -fSL ${MANTIS_URL} -o ${MANTIS_FILE} \
     && curl -fsL ${oIDC_PLUGIN_URL} -o ${OIDC_PLUGIN_FILE} \
     && tar -xz --strip-components=1 -f ${MANTIS_FILE} \
-    && mkdir ./plugins/MantisOIDC/ && \
+    && mkdir ./plugins/MantisOIDC/ \
     && tar -xz -C ./plugins/MantisOIDC/ --strip-components=1 -f ${OIDC_PLUGIN_FILE} \
-    && rm ${MANTIS_FILE} \
+    && rm ${MANTIS_FILE} ${OIDC_PLUGIN_FILE} \
     && chown -R www-data:www-data . \
     && mv /var/www/html/admin /var/www/ \
     && ln -sf /usr/share/zoneinfo/America/Los_Angeles /etc/localtime \
