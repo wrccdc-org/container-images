@@ -2,12 +2,14 @@
 # Dockerfile for mantisbt
 #
 
-FROM php:8.2-apache
-MAINTAINER kev <noreply@easypi.pro>
+FROM php:8.4-apache
+MAINTAINER wrccdc
 
 ENV MANTIS_VER 2.27.1
 
-RUN a2enmod rewrite
+
+ENV MANTIS_URL https://sourceforge.net/projects/mantisbt/files/mantis-stable/${MANTIS_VER}/mantisbt-${MANTIS_VER}.tar.gz
+ENV OIDC_PLUGIN_URL https://github.com/FSD-Christian-ADM/MantisOIDC/archive/refs/heads/master.tar.gz
 
 RUN set -xe \
     && apt-get update \
@@ -19,23 +21,23 @@ RUN set -xe \
 
 RUN a2enmod rewrite
 
-ENV MANTIS_URL https://sourceforge.net/projects/mantisbt/files/mantis-stable/${MANTIS_VER}/mantisbt-${MANTIS_VER}.tar.gz
 ENV MANTIS_FILE mantisbt.tar.gz
+ENV OIDC_PLUGIN_FILE MantisOIDC.tar.gz
 
 RUN set -xe \
     && curl -fSL ${MANTIS_URL} -o ${MANTIS_FILE} \
+    && curl -fsL ${oIDC_PLUGIN_URL} -o ${OIDC_PLUGIN_FILE} \
     && tar -xz --strip-components=1 -f ${MANTIS_FILE} \
+    && mkdir ./plugins/MantisOIDC/ && \
+    && tar -xz -C ./plugins/MantisOIDC/ --strip-components=1 -f ${OIDC_PLUGIN_FILE} \
     && rm ${MANTIS_FILE} \
     && chown -R www-data:www-data . \
     && mv /var/www/html/admin /var/www/ \
     && ln -sf /usr/share/zoneinfo/America/Los_Angeles /etc/localtime \
     && echo 'date.timezone = "America/Los_Angeles"' > /usr/local/etc/php/php.ini
 
-COPY wrccdc.png /var/www/html/images/
-COPY *.crt /usr/local/share/ca-certificates/
-RUN cp /var/www/html/images/wrccdc.png /var/www/html/images/mantis_logo.png \
-    && cp /var/www/html/images/wrccdc.png mantis_logo_notext.png \
-    && ls -1 /usr/local/share/ca-certificates/ \
-    && update-ca-certificates --verbose
+COPY wrccdc.png /var/www/html/images/logo.png
+RUN cp /var/www/html/images/logo.png /var/www/html/images/mantis_logo.png \
+    && cp /var/www/html/images/logo.png mantis_logo_notext.png
 
 #COPY config_inc.php /var/www/html/config/
