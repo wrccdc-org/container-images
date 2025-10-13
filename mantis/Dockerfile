@@ -13,7 +13,7 @@ ENV OIDC_PLUGIN_URL https://github.com/FSD-Christian-ADM/MantisOIDC/archive/refs
 
 RUN set -xe \
     && apt-get update \
-    && apt-get install -y libfreetype6-dev libpng-dev libjpeg-dev libpq-dev libxml2-dev libonig-dev libldap2-dev \
+    && apt-get install -y libfreetype6-dev libpng-dev libjpeg-dev libpq-dev libxml2-dev libonig-dev libldap2-dev composer \
     && docker-php-ext-install gd mbstring mysqli pgsql soap \
     && docker-php-ext-configure ldap --with-libdir=lib/x86_64-linux-gnu/ \
     && docker-php-ext-install ldap \
@@ -34,7 +34,9 @@ RUN set -xe \
     && chown -R www-data:www-data . \
     && mv /var/www/html/admin /var/www/ \
     && ln -sf /usr/share/zoneinfo/America/Los_Angeles /etc/localtime \
-    && echo 'date.timezone = "America/Los_Angeles"' > /usr/local/etc/php/php.ini
+    && echo 'date.timezone = "America/Los_Angeles"' > /usr/local/etc/php/php.ini \
+    && cd plugins/MantisOIDC/pages/assets/lib/OpenID-Connect-PHP/ \
+    && composer install || echo composer failed
 
 COPY wrccdc.png /var/www/html/images/logo.png
 RUN cp /var/www/html/images/logo.png /var/www/html/images/mantis_logo.png \
