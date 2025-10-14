@@ -15,12 +15,9 @@ RUN set -eux; \
     apt-get install -y --no-install-recommends \
         libfreetype6-dev libpng-dev libjpeg-dev libpq-dev libxml2-dev libonig-dev libldap2-dev curl unzip git; \
     docker-php-ext-configure gd --with-freetype --with-jpeg; \
-    docker-php-ext-install gd mbstring mysqli pgsql soap; \
-    docker-php-ext-configure ldap --with-libdir=lib/x86_64-linux-gnu/; \
-    docker-php-ext-install ldap; \
-    \
+    docker-php-ext-install gd mbstring mysqli pgsql soap ldap \
     # Install Composer globally
-    curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer; \
+    && curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer; \
     \
     rm -rf /var/lib/apt/lists/*
 

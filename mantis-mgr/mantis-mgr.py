@@ -211,10 +211,11 @@ class MantisAPI:
             "email": email,
             "real_name": real_name,
             "password": password,
-            "access_level": {"name": access_level},
             "enabled": True,
             "protected": False
         }
+        if access_level:
+            data["access_level"] = {"name": access_level}
         return self._request("POST", "/users/", json=data)
     
     def update_user_access(self, user_id: int, access_level: str):
@@ -298,7 +299,7 @@ def get_mysql_connection() -> Optional[MantisDB]:
             print(f"\nConnecting to MySQL database at {MYSQL_HOST}:{MYSQL_PORT}...")
         db = MantisDB(MYSQL_HOST, MYSQL_PORT, MYSQL_USER, MYSQL_PASSWORD, MYSQL_DATABASE)
         if VERBOSE:
-            print("✓ MySQL connection successful.")
+            print("    MySQL connection successful.")
         return db
     except Exception as e:
         print(f"⚠ MySQL connection failed: {e}")
@@ -431,7 +432,7 @@ def sync_users(api: MantisAPI):
     print("\n=== Starting User Sync ===")
     
     # Get LDAP users
-    ldap_users = get_ldap_users(list(GROUP_ROLE_MAP.keys()))
+    ldap_users = get_ldap_users(list(GROUP_ROLE_MAP.keys()) + ["BlueTeam"])
     print(f"\nFound {len(ldap_users)} unique users in LDAP")
     
     # Load Mantis users if cache is empty
@@ -462,9 +463,13 @@ def sync_users(api: MantisAPI):
     # Process each LDAP user
     for username, user_info in ldap_users.items():
         print(f"\nProcessing user: {username}")
-        
-        # Determine base access level (highest role from groups)
+
         access_level = "reporter"  # default
+        user_info["blue_team"] = False
+        if username.lower().startswith("team") or username.lower().startswith("blue"):
+            user_info["blue_team"] = True
+            access_level = None
+
         for group in user_info["groups"]:
             if group in GROUP_ROLE_MAP:
                 role = GROUP_ROLE_MAP[group]
@@ -481,7 +486,6 @@ def sync_users(api: MantisAPI):
             # Check if we need to update any fields
             needs_update = False
             updates = {}
-            
             if cached_user.get('email') != user_info['email']:
                 needs_update = True
                 updates['email'] = user_info['email']
@@ -567,7 +571,7 @@ def sync_users(api: MantisAPI):
         # Handle BlueTeam members - create team projects
         if "BlueTeam" in user_info["groups"] and user_id:
             # Extract team number from username (e.g., blue01 -> team01)
-            if username.lower().startswith("team"):
+            if user_info["blue_team"]:
                 team_num = username[4:]  # Get everything after "team"
                 team_project_name = f"team{team_num}"
                 
@@ -596,7 +600,7 @@ def sync_users(api: MantisAPI):
                 try:
                     print(f"    Adding user (ID: {user_id}) as reporter to {team_project_name}")
                     api.add_user_to_project(team_project['id'], user_id=user_id, access_level="reporter")
-                    print(f"    ✓ Successfully added {username} to {team_project_name}")
+                    print(f"        Successfully added {username} to {team_project_name}")
                 except Exception as e:
                     print(f"    Error adding user to project: {e}")
     
@@ -666,10 +670,10 @@ def remove_untracked_users(api: MantisAPI):
                     # Remove from cache
                     if user['name'] in MANTIS_USER_CACHE:
                         del MANTIS_USER_CACHE[user['name']]
-                    print(f"    ✓ Deleted {user['name']}")
+                    print(f"        Deleted {user['name']}")
                 except Exception as e:
                     print(f"    ✗ Error deleting {user['name']}: {e}")
-            print(f"\n✓ Cleanup complete. Deleted {len(users_to_delete)} users.")
+            print(f"\n    Cleanup complete. Deleted {len(users_to_delete)} users.")
         else:
             print("Cleanup cancelled.")
     else:
@@ -711,14 +715,14 @@ def main():
             print("Testing user lookup endpoint...")
             test_user = api.get_user_by_username("administrator")
             if test_user:
-                print(f"✓ User lookup successful (found: {test_user['name']})")
+                print(f"    User lookup successful (found: {test_user['name']})")
             else:
                 print("⚠ User lookup returned no results (this is normal if 'administrator' doesn't exist)")
             
             # Test projects endpoint
             projects = api.get_projects()
-            print(f"✓ Successfully connected to Mantis API")
-            print(f"✓ Found {len(projects.get('projects', []))} projects")
+            print(f"    Successfully connected to Mantis API")
+            print(f"    Found {len(projects.get('projects', []))} projects")
             
             # Test MySQL connection if configured
             if MYSQL_AVAILABLE and MYSQL_HOST and MYSQL_USER and MYSQL_PASSWORD:
@@ -727,8 +731,8 @@ def main():
                     print(f"Connecting to {MYSQL_HOST}:{MYSQL_PORT}/{MYSQL_DATABASE}...")
                     db = MantisDB(MYSQL_HOST, MYSQL_PORT, MYSQL_USER, MYSQL_PASSWORD, MYSQL_DATABASE)
                     db_users = db.get_all_users()
-                    print(f"✓ MySQL connection successful")
-                    print(f"✓ Found {len(db_users)} users in database")
+                    print(f"    MySQL connection successful")
+                    print(f"    Found {len(db_users)} users in database")
                     
                     if db_users:
                         print(f"\nShowing first 5 users from MySQL:")
