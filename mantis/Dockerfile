@@ -7,7 +7,7 @@ LABEL maintainer="wrccdc"
 
 ENV MANTIS_VER=2.27.1
 ENV MANTIS_URL=https://sourceforge.net/projects/mantisbt/files/mantis-stable/${MANTIS_VER}/mantisbt-${MANTIS_VER}.tar.gz
-ENV OIDC_PLUGIN_URL=https://github.com/FSD-Christian-ADM/MantisOIDC/archive/refs/heads/master.tar.gz
+ENV OIDC_PLUGIN_URL=https://github.com/initOS/MantisOIDC/archive/refs/heads/scopes-and-user-mapping.tar.gz
 
 # Install dependencies and Composer
 RUN set -eux; \
