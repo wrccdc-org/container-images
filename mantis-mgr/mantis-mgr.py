@@ -37,26 +37,21 @@ except ImportError:
 # Environment variables
 MANTIS_URL = os.getenv("MANTIS_URL", "https://tickets.wccomps.org")
 MANTIS_API_TOKEN = os.getenv("MANTIS_API_TOKEN")
-LDAP_SERVER = os.getenv("LDAP_SERVER", "ldap://10.0.0.4")
+LDAP_SERVER = os.getenv("LDAP_HOST", "ldap://10.0.0.4")
 LDAP_BIND_DN = os.getenv("LDAP_BIND_DN", "cn=core-ldap-svc,dc=ldap,dc=wccomps,dc=org")
-LDAP_BIND_PASSWORD = os.getenv("LDAP_BIND_PASSWORD")
-LDAP_BASE_DN = os.getenv("LDAP_BASE_DN", "dc=ldap,dc=wccomps,dc=org")
-SYNC_TIME = int(os.getenv("SYNC_TIME", "5"))
+LDAP_BIND_PASSWORD = os.getenv("LDAP_BIND_PASS")
+LDAP_BASE_DN = os.getenv("LDAP_ROOT_DN", "dc=ldap,dc=wccomps,dc=org")
+SYNC_TIME = int(os.getenv("SYNC_TIME", "30"))
 
 # MySQL environment variables (optional)
 MYSQL_HOST = os.getenv("MYSQL_HOST")
 MYSQL_PORT = int(os.getenv("MYSQL_PORT", "3306"))
-MYSQL_USER = os.getenv("MYSQL_USER")
-MYSQL_PASSWORD = os.getenv("MYSQL_PASSWORD")
-MYSQL_DATABASE = os.getenv("MYSQL_DATABASE", "mantis")
+MYSQL_USER = os.getenv("DB_USER")
+MYSQL_PASSWORD = os.getenv("DB_PASSWORD")
+MYSQL_DATABASE = os.getenv("DB_NAME", "mantis")
+VERBOSE = bool(os.getenv("DEBUG", "0"))
 
-# Global verbose flag
-VERBOSE = False
 
-# Global user cache - shared across sync operations
-MANTIS_USER_CACHE = {}
-
-# LDAP group to Mantis role mapping
 GROUP_ROLE_MAP = {
     "WCComps_Ticketing_Support": "manager",
     "WCComps_Ticketing_Admin": "administrator"
@@ -72,9 +67,11 @@ ROLE_LEVELS = {
     "administrator": 90
 }
 
+MANTIS_USER_CACHE = {}
+
+
 
 class MantisDB:
-    """Direct MySQL database access for Mantis (optional, more efficient)"""
     
     def __init__(self, host: str, port: int, user: str, password: str, database: str):
         if not MYSQL_AVAILABLE:
@@ -90,18 +87,15 @@ class MantisDB:
         )
     
     def get_all_users(self) -> List[Dict]:
-        """Get all users from database"""
         with self.connection.cursor() as cursor:
             cursor.execute("SELECT `id`, `username`, `email`, `realname`, `access_level`, `enabled`, `protected` FROM `mantis_user_table`")
             return cursor.fetchall()
     
     def close(self):
-        """Close database connection"""
         self.connection.close()
 
 
 class MantisAPI:
-    """Wrapper for Mantis Bug Tracker REST API"""
     
     def __init__(self, base_url: str, api_token: str):
         self.base_url = base_url.rstrip('/')
@@ -112,7 +106,6 @@ class MantisAPI:
         }
     
     def _request(self, method: str, endpoint: str, **kwargs):
-        """Make API request"""
         url = f"{self.base_url}/api/rest{endpoint}"
         
         if VERBOSE:
@@ -126,16 +119,13 @@ class MantisAPI:
             print(f"{method} {parsed.path}{('?' + parsed.query) if parsed.query else ''} HTTP/1.1")
             print(f"Host: {parsed.netloc}")
             
-            # Print headers
             for key, value in self.headers.items():
-                # Mask the token for security
                 if key == "Authorization":
                     masked_value = value[:20] + "..." if len(value) > 20 else value
                     print(f"{key}: {masked_value}")
                 else:
                     print(f"{key}: {value}")
             
-            # Print body if present
             if 'json' in kwargs:
                 body = json.dumps(kwargs['json'], indent=2)
                 print(f"Content-Length: {len(body)}")
@@ -154,11 +144,9 @@ class MantisAPI:
                 print(f"[RAW HTTP RESPONSE]")
                 print(f"HTTP/1.1 {response.status_code} {response.reason}")
                 
-                # Print response headers
                 for key, value in response.headers.items():
                     print(f"{key}: {value}")
-                
-                # Print response body
+
                 if response.text:
                     print()
                     try:
@@ -181,15 +169,12 @@ class MantisAPI:
             raise
     
     def get_issues(self, page_size: int = 50, page: int = 1) -> List[Dict]:
-        """Get all issues"""
         return self._request("GET", f"/issues/?page_size={page_size}&page={page}")
     
     def delete_issue(self, issue_id: int):
-        """Delete an issue"""
         return self._request("DELETE", f"/issues/{issue_id}")
     
     def get_user_by_username(self, username: str) -> Optional[Dict]:
-        """Get user by username using /users/username/:username endpoint"""
         try:
             result = self._request("GET", f"/users/username/{username}")
             if result and 'users' in result and len(result['users']) > 0:
@@ -201,11 +186,9 @@ class MantisAPI:
             return None
     
     def delete_user(self, user_id: int):
-        """Delete a user"""
         return self._request("DELETE", f"/users/{user_id}")
     
     def create_user(self, username: str, email: str, real_name: str, password: str, access_level: str) -> Dict:
-        """Create a new user"""
         data = {
             "username": username,
             "email": email,
@@ -219,12 +202,10 @@ class MantisAPI:
         return self._request("POST", "/users/", json=data)
     
     def update_user_access(self, user_id: int, access_level: str):
-        """Update user access level"""
         data = {"access_level": {"name": access_level}}
         return self._request("PATCH", f"/users/{user_id}", json=data)
     
     def update_user(self, user_id: int, user_name: str, email: str = None, real_name: str = None, access_level: str = None):
-        """Update user information"""
         data = {}
         if user_name:
             data["name"] = user_name
@@ -240,15 +221,12 @@ class MantisAPI:
             return self._request("PATCH", f"/users/{user_id}", json=data)
     
     def get_projects(self) -> List[Dict]:
-        """Get all projects"""
         return self._request("GET", "/projects/")
     
     def get_project(self, project_id: int) -> Dict:
-        """Get project by ID"""
         return self._request("GET", f"/projects/{project_id}")
     
     def create_project(self, name: str, description: str = "", parent_id: Optional[int] = None) -> Dict:
-        """Create a new project (or subproject if parent_id provided)"""
         data = {
             "name": name,
             "description": description,
@@ -261,7 +239,6 @@ class MantisAPI:
         return self._request("POST", "/projects/", json=data)
     
     def add_user_to_project(self, project_id: int, user_id: int = None, username: str = None, access_level: str = "reporter"):
-        """Add user to project with specific access level (or update if already exists)"""
         if not user_id and not username:
             raise ValueError("Either user_id or username must be provided")
         
@@ -275,7 +252,6 @@ class MantisAPI:
         elif user_id:
             data["user"] = {"id": user_id}
         
-        # Use PUT to add or update user access
         return self._request("PUT", f"/projects/{project_id}/users/", json=data)
     
     def get_project_users(self, project_id: int) -> List[Dict]:
@@ -284,13 +260,11 @@ class MantisAPI:
 
 
 def generate_random_password(length: int = 16) -> str:
-    """Generate a random password"""
     alphabet = string.ascii_letters + string.digits + string.punctuation
     return ''.join(secrets.choice(alphabet) for _ in range(length))
 
 
 def get_mysql_connection() -> Optional[MantisDB]:
-    """Establish MySQL connection if configured"""
     if not MYSQL_AVAILABLE or not MYSQL_HOST or not MYSQL_USER or not MYSQL_PASSWORD:
         return None
     
@@ -302,12 +276,11 @@ def get_mysql_connection() -> Optional[MantisDB]:
             print("    MySQL connection successful.")
         return db
     except Exception as e:
-        print(f"⚠ MySQL connection failed: {e}")
+        print(f" MySQL connection failed: {e}")
         return None
 
 
 def load_mantis_users_from_mysql(db: MantisDB) -> Dict[str, Dict]:
-    """Load all Mantis users from MySQL into the global cache"""
     global MANTIS_USER_CACHE
     
     print("Fetching users from MySQL database...")
@@ -346,8 +319,6 @@ def get_ldap_users(groups: List[str]) -> Dict[str, Dict]:
     
     for group in groups:
         print(f"Searching for group: {group}")
-        # Search for users who are members of this group
-        # The memberOf attribute contains full DN like: cn=WCComps_Ticketing_Support,ou=groups,dc=ldap,dc=wccomps,dc=org
         search_filter = f"(memberOf=cn={group},ou=groups,{LDAP_BASE_DN})"
         
         conn.search(
@@ -360,10 +331,8 @@ def get_ldap_users(groups: List[str]) -> Dict[str, Dict]:
         print(f"  LDAP returned {len(conn.entries)} entries")
         
         for entry in conn.entries:
-            # Use sAMAccountName as the primary username
             username = str(entry.sAMAccountName) if hasattr(entry, 'sAMAccountName') else None
             if not username:
-                # Fallback to cn if sAMAccountName not present
                 username = str(entry.cn) if hasattr(entry, 'cn') else None
             
             if not username:
@@ -371,8 +340,7 @@ def get_ldap_users(groups: List[str]) -> Dict[str, Dict]:
                 continue
             
             email = str(entry.mail) if hasattr(entry, 'mail') else f"{username}@wccomps.org"
-            
-            # Prefer displayName, fall back to cn, then username
+
             if hasattr(entry, 'displayName') and entry.displayName:
                 name = str(entry.displayName)
             elif hasattr(entry, 'cn') and entry.cn:
@@ -397,7 +365,6 @@ def get_ldap_users(groups: List[str]) -> Dict[str, Dict]:
 
 
 def clean_tickets(api: MantisAPI):
-    """Delete all existing tickets"""
     print("\n=== Starting Ticket Cleanup ===")
     
     while True:
@@ -426,16 +393,13 @@ def clean_tickets(api: MantisAPI):
 
 
 def sync_users(api: MantisAPI):
-    """Sync LDAP users to Mantis - create/update users and assign to projects"""
     global MANTIS_USER_CACHE
     
     print("\n=== Starting User Sync ===")
-    
-    # Get LDAP users
+
     ldap_users = get_ldap_users(list(GROUP_ROLE_MAP.keys()) + ["BlueTeam"])
     print(f"\nFound {len(ldap_users)} unique users in LDAP")
-    
-    # Load Mantis users if cache is empty
+
     if not MANTIS_USER_CACHE:
         db = get_mysql_connection()
         if db:
@@ -445,7 +409,6 @@ def sync_users(api: MantisAPI):
             print("\n⚠ MySQL not configured. Will check users individually via API.")
             print("  For better performance, set MYSQL_HOST, MYSQL_USER, MYSQL_PASSWORD")
     
-    # Get or create parent project "Competitions"
     print("\nChecking for parent project 'Competitions'...")
     projects_response = api.get_projects()
     projects = {p['name']: p for p in projects_response.get('projects', [])}
@@ -476,14 +439,11 @@ def sync_users(api: MantisAPI):
                 if ROLE_LEVELS.get(role, 0) > ROLE_LEVELS.get(access_level, 0):
                     access_level = role
         
-        # Create or update user in Mantis
         user_id = None
         if username in MANTIS_USER_CACHE:
-            # User found in cache
             user_id = MANTIS_USER_CACHE[username]['id']
             cached_user = MANTIS_USER_CACHE[username]
-            
-            # Check if we need to update any fields
+
             needs_update = False
             updates = {}
             if cached_user.get('email') != user_info['email']:
@@ -493,8 +453,7 @@ def sync_users(api: MantisAPI):
             if cached_user.get('real_name') != user_info['name']:
                 needs_update = True
                 updates['real_name'] = user_info['name']
-            
-            # Always update access level
+
             updates['access_level'] = access_level
             needs_update = True
             
@@ -502,7 +461,6 @@ def sync_users(api: MantisAPI):
                 print(f"  User exists (ID: {user_id}), updating metadata and access level to {access_level}")
                 try:
                     api.update_user(user_id, username, **updates)
-                    # Update cache
                     MANTIS_USER_CACHE[username].update({
                         'email': user_info['email'],
                         'real_name': user_info['name'],
@@ -513,7 +471,6 @@ def sync_users(api: MantisAPI):
             else:
                 print(f"  User exists (ID: {user_id}), no updates needed")
         else:
-            # User not in cache, check via API
             print(f"  Checking if user exists via API...")
             existing_user = api.get_user_by_username(username)
             if existing_user:
@@ -527,7 +484,6 @@ def sync_users(api: MantisAPI):
                         real_name=user_info['name'],
                         access_level=access_level
                     )
-                    # Add to cache
                     MANTIS_USER_CACHE[username] = {
                         'id': user_id,
                         'name': username,
@@ -540,7 +496,6 @@ def sync_users(api: MantisAPI):
                 except Exception as e:
                     print(f"    Error updating user: {e}")
             else:
-                # User doesn't exist, create them
                 print(f"  Creating new user with role: {access_level}")
                 password = generate_random_password()
                 try:
@@ -568,16 +523,13 @@ def sync_users(api: MantisAPI):
                     print(f"    Error creating user: {e}")
                     continue
         
-        # Handle BlueTeam members - create team projects
         if "BlueTeam" in user_info["groups"] and user_id:
-            # Extract team number from username (e.g., blue01 -> team01)
             if user_info["blue_team"]:
-                team_num = username[4:]  # Get everything after "team"
+                team_num = username[4:]
                 team_project_name = f"team{team_num}"
                 
                 print(f"  BlueTeam member detected, checking for project: {team_project_name}")
                 
-                # Check if team project exists
                 if team_project_name not in projects:
                     print(f"    Creating project: {team_project_name}")
                     try:
@@ -595,8 +547,7 @@ def sync_users(api: MantisAPI):
                 else:
                     team_project = projects[team_project_name]
                     print(f"    Project exists (ID: {team_project['id']})")
-                
-                # Add user as reporter to their team project using user_id
+            
                 try:
                     print(f"    Adding user (ID: {user_id}) as reporter to {team_project_name}")
                     api.add_user_to_project(team_project['id'], user_id=user_id, access_level="reporter")
@@ -608,47 +559,39 @@ def sync_users(api: MantisAPI):
 
 
 def remove_untracked_users(api: MantisAPI):
-    """Delete users in Mantis that are not in LDAP"""
     global MANTIS_USER_CACHE
     
     print("\n=== Starting Untracked User Removal ===")
     
-    # Must have MySQL to get full user list
     if not MYSQL_AVAILABLE or not MYSQL_HOST or not MYSQL_USER or not MYSQL_PASSWORD:
         print("✗ Error: --remove-untracked-users requires MySQL access to list all users")
         print("  Set MYSQL_HOST, MYSQL_USER, MYSQL_PASSWORD environment variables")
         if not MYSQL_AVAILABLE:
             print("  Install pymysql: pip install pymysql")
         return
-    
-    # Reload user cache from MySQL to ensure we have the latest
+
     db = get_mysql_connection()
     if not db:
-        print("✗ Failed to connect to MySQL")
+        print(" Failed to connect to MySQL")
         return
     
     load_mantis_users_from_mysql(db)
     db.close()
-    
-    # Get current LDAP users
+
     ldap_users = get_ldap_users(list(GROUP_ROLE_MAP.keys()))
     print(f"Found {len(ldap_users)} users in LDAP")
-    
-    # Find users to delete
+
     users_to_delete = []
-    protected_users = ['administrator']  # List of usernames to never delete
+    protected_users = ['administrator'] 
     
     for mantis_username, mantis_user in MANTIS_USER_CACHE.items():
-        # Skip if user is in LDAP
         if mantis_username in ldap_users:
             continue
-        
-        # Skip protected users
+
         if mantis_username in protected_users:
             print(f"  Skipping protected user: {mantis_username}")
             continue
-        
-        # Skip if user is protected in Mantis
+
         if mantis_user.get('protected', False):
             print(f"  Skipping protected user: {mantis_username} (ID: {mantis_user['id']})")
             continue
@@ -659,23 +602,18 @@ def remove_untracked_users(api: MantisAPI):
         print(f"\nFound {len(users_to_delete)} users to delete:")
         for user in users_to_delete:
             print(f"  - {user['name']} (ID: {user['id']}, {user.get('email', 'no email')})")
-        
-        confirm = input(f"\nDelete these {len(users_to_delete)} users? (yes/no): ").strip().lower()
-        
-        if confirm == 'yes':
-            for user in users_to_delete:
-                try:
-                    print(f"  Deleting user: {user['name']} (ID: {user['id']})")
-                    api.delete_user(user['id'])
-                    # Remove from cache
-                    if user['name'] in MANTIS_USER_CACHE:
-                        del MANTIS_USER_CACHE[user['name']]
-                    print(f"        Deleted {user['name']}")
-                except Exception as e:
-                    print(f"    ✗ Error deleting {user['name']}: {e}")
-            print(f"\n    Cleanup complete. Deleted {len(users_to_delete)} users.")
-        else:
-            print("Cleanup cancelled.")
+
+        for user in users_to_delete:
+            try:
+                print(f"  Deleting user: {user['name']} (ID: {user['id']})")
+                api.delete_user(user['id'])
+                # Remove from cache
+                if user['name'] in MANTIS_USER_CACHE:
+                    del MANTIS_USER_CACHE[user['name']]
+                print(f"        Deleted {user['name']}")
+            except Exception as e:
+                print(f" Error deleting {user['name']}: {e}")
+        print(f"\n    Cleanup complete. Deleted {len(users_to_delete)} users.")
     else:
         print("No users to delete. All Mantis users are in LDAP or protected.")
     
@@ -715,9 +653,9 @@ def main():
             print("Testing user lookup endpoint...")
             test_user = api.get_user_by_username("administrator")
             if test_user:
-                print(f"    User lookup successful (found: {test_user['name']})")
+                print(f" User lookup successful (found: {test_user['name']})")
             else:
-                print("⚠ User lookup returned no results (this is normal if 'administrator' doesn't exist)")
+                print("  User lookup returned no results (this is normal if 'administrator' doesn't exist)")
             
             # Test projects endpoint
             projects = api.get_projects()
@@ -741,13 +679,13 @@ def main():
                     
                     db.close()
                 except Exception as e:
-                    print(f"✗ MySQL connection failed: {e}")
+                    print(f" MySQL connection failed: {e}")
             else:
                 print(f"\n=== MySQL Status ===")
                 if not MYSQL_AVAILABLE:
-                    print("✗ pymysql not installed (install with: pip install pymysql)")
+                    print(" pymysql not installed (install with: pip install pymysql)")
                 else:
-                    print("✗ MySQL environment variables not set")
+                    print(" MySQL environment variables not set")
                     print("  Set MYSQL_HOST, MYSQL_USER, MYSQL_PASSWORD to enable MySQL support")
                     print("  Note: MySQL is REQUIRED for --remove-untracked-users functionality")
             
@@ -758,7 +696,7 @@ def main():
                     print(f"  - {proj['name']} (ID: {proj['id']}){parent}")
             
         except Exception as e:
-            print(f"✗ Connection test failed: {e}")
+            print(f" Connection test failed: {e}")
         sys.exit(0)
     
     # Validate --remove-untracked-users requires --sync-users
