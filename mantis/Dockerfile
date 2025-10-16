@@ -7,7 +7,6 @@ LABEL maintainer="wrccdc"
 
 ENV MANTIS_VER=2.27.1
 ENV MANTIS_URL=https://sourceforge.net/projects/mantisbt/files/mantis-stable/${MANTIS_VER}/mantisbt-${MANTIS_VER}.tar.gz
-#ENV AUTHENTIK_AUTH_PLUGIN_URL=https://github.com/giga1699/authentikProxyAuth/archive/refs/heads/master.zip
 
 # Install dependencies and Composer
 RUN set -eux; \
@@ -24,17 +23,13 @@ RUN set -eux; \
 RUN a2enmod rewrite
 
 ENV MANTIS_FILE=mantisbt.tar.gz
-#ENV AUTHENTIK_PLUGIN_FILE=authentikLogin.tar.gz
 
 WORKDIR /var/www/html
 
 RUN set -eux; \
     curl -fSL "${MANTIS_URL}" -o "${MANTIS_FILE}"; \
-    #curl -fsSL "${AUTHENTIK_AUTH_PLUGIN_URL}" -o "${AUTHENTIK_PLUGIN_FILE}"; \
     tar -xzf "${MANTIS_FILE}" --strip-components=1; \
     mkdir -p ./plugins; \
-    #tar -xzf "${AUTHENTIK_PLUGIN_FILE}" -C ./plugins/authentikProxyAuth --strip-components=1; \
-    #rm "${MANTIS_FILE}" "${AUTHENTIK_PLUGIN_FILE}"; \
     rm "${MANTIS_FILE}"; \
     cd plugins; \
     git clone https://github.com/giga1699/authentikProxyAuth; \
